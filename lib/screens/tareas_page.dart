@@ -13,7 +13,7 @@ class TareasPage extends StatefulWidget {
 class _TareasPageState extends State<TareasPage> {
   final TextEditingController _tituloController = TextEditingController();
 
-  List<Tarea> _tareas = [];
+  final List<Tarea> _tareas = [];
 
   @override
   void initState() {

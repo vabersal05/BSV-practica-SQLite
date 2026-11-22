@@ -24,6 +24,37 @@
 
    Sustituye `chrome` por otro identificador de `flutter devices` si lo necesitas.
 
+# Tecnología de persistencia elegida
+
+## Diseño de la base de datos
+
+Para esta práctica utilizaré SQLite como base de datos local,
+junto con Drift y drift_flutter para manejar la persistencia
+desde Flutter.
+
+Elegí estas herramientas porque permiten guardar la información
+sin conexión a internet y utilizar una misma implementación
+para Android, Windows y web.
+
+### Tabla: tareas
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| id | INTEGER | Identificador único y autoincremental |
+| titulo | TEXT | Título de la tarea, obligatorio |
+| completada | INTEGER | Estado: 0 = pendiente, 1 = completada |
+
+Cada tarea tendrá un identificador único. Cuando se agregue
+una nueva tarea, su estado inicial será pendiente.
+
+La base de datos será la encargada de conservar la información,
+mientras que la interfaz mostrará los registros consultados.
+
+### Plataformas seleccionadas
+
+Se trabajará con las plataformas Android, Windows y web
+
+
 ## Tarea por realizar
 
 - Persistencia SQLite real en Android, iOS, Windows, Linux, macOS y web.
