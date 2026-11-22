@@ -78,6 +78,14 @@ Se hicieron las operaciones de edición, cambio de estado y eliminación de tare
 
 Ahora podemos agregar, consultar, editar, completar y eliminar tareas, haciendo los cambios directamente en la base de datos local y después se actualiza en la interfaz
 
+## Etapa 4. Pruebas automatizadas
+
+Se agregaron pruebas automatizadas utilizando `flutter_test` y una base SQLite temporal mediante `NativeDatabase.memory()`.
+
+Las pruebas comprueban la validación de títulos vacíos, la creación y consulta de tareas, la edición, los cambios de estado y la eliminación de registros.
+
+También se incluyeron pruebas de interfaz para comprobar que la aplicación abre correctamente y permite agregar tareas desde el formulario.
+
 ## Notas
 
 - **No uses una base MySQL ni API REST:** esta práctica es de almacenamiento **local**.
