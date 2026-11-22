@@ -66,6 +66,13 @@ Se trabajará con las plataformas Android, Windows y web
 
 Consulta la consigna PDF/LaTeX: contiene pasos de investigación, criterios, evidencias y rúbrica.
 
+## Etapa 2. Persistencia local con SQLite
+
+Se configuró la persistencia de tareas con SQLite, Drift y drift_flutter. La base de datos se encuentra definida en `lib/data/app_database.dart` y utiliza una tabla llamada `tareas`, con los campos `id`, `titulo` y `completada`.
+
+En esta etapa se implementaron las operaciones para agregar y consultar tareas. La interfaz utiliza funciones asíncronas para guardar los registros y actualizar la lista después de cada inserción. Para Flutter Web se agregaron los archivos `sqlite3.wasm` y `drift_worker.dart.js` dentro de la carpeta `web/`.
+
+
 ## Notas
 
 - **No uses una base MySQL ni API REST:** esta práctica es de almacenamiento **local**.
