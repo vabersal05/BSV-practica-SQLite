@@ -72,6 +72,11 @@ Se configuró la persistencia de tareas con SQLite, Drift y drift_flutter. La ba
 
 En esta etapa se implementaron las operaciones para agregar y consultar tareas. La interfaz utiliza funciones asíncronas para guardar los registros y actualizar la lista después de cada inserción. Para Flutter Web se agregaron los archivos `sqlite3.wasm` y `drift_worker.dart.js` dentro de la carpeta `web/`.
 
+## Etapa 3. Operaciones CRUD completas
+
+Se hicieron las operaciones de edición, cambio de estado y eliminación de tareas utilizando Drift y SQLite.
+
+Ahora podemos agregar, consultar, editar, completar y eliminar tareas, haciendo los cambios directamente en la base de datos local y después se actualiza en la interfaz
 
 ## Notas
 

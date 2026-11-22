@@ -55,4 +55,35 @@ class AppDatabase extends _$AppDatabase {
           ..orderBy([(t) => OrderingTerm.asc(t.id)]))
         .get();
   }
+
+
+  // UPDATE: modificar el título de una tarea
+  Future<int> editarTitulo(int id, String nuevoTitulo) {
+    final tituloLimpio = nuevoTitulo.trim();
+
+    if (tituloLimpio.isEmpty) {
+      throw ArgumentError('El título no puede estar vacío.');
+    }
+
+    return (update(tareas)..where((t) => t.id.equals(id))).write(
+      TareasCompanion(
+        titulo: Value(tituloLimpio),
+      ),
+    );
+  }
+
+  // UPDATE: cambiar el estado de una tarea
+  Future<int> cambiarEstado(int id, bool completada) {
+    return (update(tareas)..where((t) => t.id.equals(id))).write(
+      TareasCompanion(
+        completada: Value(completada),
+      ),
+    );
+  }
+
+  // DELETE: eliminar una tarea con su ID
+  Future<int> eliminarTarea(int id) {
+    return (delete(tareas)..where((t) => t.id.equals(id))).go();
+  }
+
 }

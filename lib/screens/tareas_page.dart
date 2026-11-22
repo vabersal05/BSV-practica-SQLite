@@ -25,7 +25,7 @@ class _TareasPageState extends State<TareasPage> {
   List<Tarea> _tareas = [];
 
   bool _cargando = true;
-  bool _guardando = false;
+  bool _ocupado = false;
   String? _errorCarga;
 
   @override
@@ -34,12 +34,12 @@ class _TareasPageState extends State<TareasPage> {
     _cargarTareas();
   }
 
-  // Consultar las tareas guardadas en SQLite
-  Future<void> _cargarTareas() async {
+  // Consultar las tareas almacenadas en SQLite.
+  Future<bool> _cargarTareas() async {
     try {
       final registros = await widget.database.obtenerTareas();
 
-      if (!mounted) return;
+      if (!mounted) return false;
 
       setState(() {
         _tareas = registros.map((registro) {
@@ -53,82 +53,248 @@ class _TareasPageState extends State<TareasPage> {
         _cargando = false;
         _errorCarga = null;
       });
+
+      return true;
     } catch (e) {
-      if (!mounted) return;
+      debugPrint('Error al consultar tareas: $e');
+
+      if (!mounted) return false;
 
       setState(() {
         _cargando = false;
         _errorCarga = 'No se pudieron cargar las tareas.';
       });
+
+      return false;
     }
   }
 
-  // Agregar una nueva tarea a SQLite
+  // Mostrar mensajes al usuario.
+  void _mostrarMensaje(String mensaje) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(content: Text(mensaje)),
+      );
+  }
+
+  // CREATE: agregar una tarea.
   Future<void> _agregarTarea() async {
+    if (_ocupado) return;
+
     final titulo = _tituloController.text.trim();
 
-    // Validar que no esté vacío.
     if (titulo.isEmpty) {
       _mostrarMensaje('Escribe un título para la tarea.');
       return;
     }
 
-    if (_guardando) return;
-
     setState(() {
-      _guardando = true;
+      _ocupado = true;
     });
 
     try {
-      // INSERT en SQLite
       await widget.database.agregarTarea(titulo);
 
       if (!mounted) return;
 
       _tituloController.clear();
 
-      // Consultar nuevamente después de guardar
-      await _cargarTareas();
+      final actualizada = await _cargarTareas();
 
       if (!mounted) return;
 
-      _mostrarMensaje('Tarea guardada correctamente.');
+      _mostrarMensaje(
+        actualizada
+            ? 'Tarea guardada correctamente.'
+            : 'Se guardó, pero no se pudo actualizar la lista.',
+      );
     } catch (e) {
-      if (!mounted) return;
-
-      _mostrarMensaje('Error al guardar la tarea.');
+      debugPrint('Error al agregar tarea: $e');
+      _mostrarMensaje('No se pudo guardar la tarea.');
     } finally {
       if (mounted) {
         setState(() {
-          _guardando = false;
+          _ocupado = false;
         });
       }
     }
   }
 
-  // PENDIENTE
-  void _alternarCompletada(Tarea tarea, bool completada) {
-    _pendiente('Implementar actualización de tarea');
+  // Ejecutar cambios y volver a consultar SQLite.
+  Future<void> _ejecutarCambio(
+    Future<int> Function() operacion,
+    String mensajeExito,
+  ) async {
+    if (_ocupado) return;
+
+    setState(() {
+      _ocupado = true;
+    });
+
+    try {
+      final filas = await operacion();
+
+      if (!mounted) return;
+
+      if (filas == 0) {
+        _mostrarMensaje('La tarea ya no existe.');
+        await _cargarTareas();
+        return;
+      }
+
+      final actualizada = await _cargarTareas();
+
+      if (!mounted) return;
+
+      _mostrarMensaje(
+        actualizada
+            ? mensajeExito
+            : 'El cambio se guardó, pero no se pudo actualizar la lista.',
+      );
+    } catch (e) {
+      debugPrint('Error al modificar tarea: $e');
+      _mostrarMensaje('No se pudo completar la operación.');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _ocupado = false;
+        });
+      }
+    }
   }
 
-  // PENDIENTE
-  void _editarTarea(Tarea tarea) {
-    _pendiente('Implementar edición de título');
-  }
-
-  // PENDIENTE
-  void _eliminarTarea(Tarea tarea) {
-    _pendiente('Implementar eliminación de tarea');
-  }
-
-  void _mostrarMensaje(String mensaje) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(mensaje)),
+  // UPDATE: marcar completada o pendiente.
+  Future<void> _alternarCompletada(
+    Tarea tarea,
+    bool completada,
+  ) async {
+    await _ejecutarCambio(
+      () => widget.database.cambiarEstado(
+        tarea.id,
+        completada,
+      ),
+      completada
+          ? 'Tarea marcada como completada.'
+          : 'Tarea marcada como pendiente.',
     );
   }
 
-  void _pendiente(String mensaje) {
-    _mostrarMensaje(mensaje);
+  // UPDATE: editar el título de una tarea.
+  Future<void> _editarTarea(Tarea tarea) async {
+    if (_ocupado) return;
+
+    String nuevoTitulo = tarea.titulo;
+    bool mostrarError = false;
+
+    final resultado = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, actualizarDialogo) {
+            return AlertDialog(
+              title: const Text('Editar tarea'),
+              content: TextFormField(
+                initialValue: tarea.titulo,
+                autofocus: true,
+                decoration: InputDecoration(
+                  labelText: 'Título de la tarea',
+                  border: const OutlineInputBorder(),
+                  errorText: mostrarError
+                      ? 'El título no puede estar vacío.'
+                      : null,
+                ),
+                onChanged: (valor) {
+                  nuevoTitulo = valor;
+
+                  if (mostrarError &&
+                      valor.trim().isNotEmpty) {
+                    actualizarDialogo(() {
+                      mostrarError = false;
+                    });
+                  }
+                },
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(dialogContext);
+                  },
+                  child: const Text('Cancelar'),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    final titulo = nuevoTitulo.trim();
+
+                    if (titulo.isEmpty) {
+                      actualizarDialogo(() {
+                        mostrarError = true;
+                      });
+                      return;
+                    }
+
+                    Navigator.pop(dialogContext, titulo);
+                  },
+                  child: const Text('Guardar'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (!mounted || resultado == null) return;
+
+    if (resultado == tarea.titulo) return;
+
+    await _ejecutarCambio(
+      () => widget.database.editarTitulo(
+        tarea.id,
+        resultado,
+      ),
+      'Título actualizado correctamente.',
+    );
+  }
+
+  // DELETE: eliminar una tarea con confirmación.
+  Future<void> _eliminarTarea(Tarea tarea) async {
+    if (_ocupado) return;
+
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Eliminar tarea'),
+          content: Text(
+            '¿Seguro que deseas eliminar "${tarea.titulo}"?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext, false);
+              },
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () {
+                Navigator.pop(dialogContext, true);
+              },
+              child: const Text('Eliminar'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (!mounted || confirmar != true) return;
+
+    await _ejecutarCambio(
+      () => widget.database.eliminarTarea(tarea.id),
+      'Tarea eliminada correctamente.',
+    );
   }
 
   @override
@@ -150,18 +316,28 @@ class _TareasPageState extends State<TareasPage> {
           children: [
             TextField(
               controller: _tituloController,
+              enabled: !_ocupado && !_cargando,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) {
+                _agregarTarea();
+              },
               decoration: const InputDecoration(
                 labelText: 'Nueva tarea',
                 border: OutlineInputBorder(),
               ),
             ),
+
             const SizedBox(height: 8),
 
             FilledButton.icon(
-              onPressed: _guardando ? null : _agregarTarea,
+              onPressed: _ocupado || _cargando
+                  ? null
+                  : _agregarTarea,
               icon: const Icon(Icons.add),
               label: Text(
-                _guardando ? 'Guardando...' : 'Agregar tarea',
+                _ocupado
+                    ? 'Procesando...'
+                    : 'Agregar tarea',
               ),
             ),
 
@@ -181,7 +357,19 @@ class _TareasPageState extends State<TareasPage> {
                     )
                   : _errorCarga != null
                       ? Center(
-                          child: Text(_errorCarga!),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(_errorCarga!),
+                              const SizedBox(height: 8),
+                              OutlinedButton(
+                                onPressed: () {
+                                  _cargarTareas();
+                                },
+                                child: const Text('Reintentar'),
+                              ),
+                            ],
+                          ),
                         )
                       : _tareas.isEmpty
                           ? const Center(
@@ -198,20 +386,30 @@ class _TareasPageState extends State<TareasPage> {
                                   child: ListTile(
                                     leading: Checkbox(
                                       value: tarea.completada,
-                                      onChanged: (valor) {
-                                        if (valor != null) {
-                                          _alternarCompletada(
-                                            tarea,
-                                            valor,
-                                          );
-                                        }
-                                      },
+                                      onChanged: _ocupado
+                                          ? null
+                                          : (valor) {
+                                              if (valor != null) {
+                                                _alternarCompletada(
+                                                  tarea,
+                                                  valor,
+                                                );
+                                              }
+                                            },
                                     ),
 
-                                    title: Text(tarea.titulo),
+                                    title: Text(
+                                      tarea.titulo,
+                                      style: TextStyle(
+                                        decoration: tarea.completada
+                                            ? TextDecoration.lineThrough
+                                            : TextDecoration.none,
+                                      ),
+                                    ),
 
                                     subtitle: Text(
-                                      'ID: ${tarea.id}',
+                                      'ID: ${tarea.id} - '
+                                      '${tarea.completada ? "Completada" : "Pendiente"}',
                                     ),
 
                                     trailing: Row(
@@ -220,17 +418,18 @@ class _TareasPageState extends State<TareasPage> {
                                         IconButton(
                                           tooltip: 'Editar',
                                           icon: const Icon(Icons.edit),
-                                          onPressed: () =>
-                                              _editarTarea(tarea),
+                                          onPressed: _ocupado
+                                              ? null
+                                              : () => _editarTarea(tarea),
                                         ),
-
                                         IconButton(
                                           tooltip: 'Eliminar',
                                           icon: const Icon(
                                             Icons.delete_outline,
                                           ),
-                                          onPressed: () =>
-                                              _eliminarTarea(tarea),
+                                          onPressed: _ocupado
+                                              ? null
+                                              : () => _eliminarTarea(tarea),
                                         ),
                                       ],
                                     ),
